@@ -48,3 +48,4 @@ Alternatively, you can use the "Execute Codex with Current File" command to quic
 - Support for OpenRouter, Tongyi Qianwen, and Ollama
 - File reference support with @file
 - Multiple approval modes (auto, manual, suggest)
+# Additional note
