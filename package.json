@@ -1,0 +1,105 @@
+{
+  "name": "codex-ui",
+  "displayName": "Codex UI",
+  "description": "A VSCode extension that wraps around codex-cli to provide a user-friendly interface for AI-assisted coding",
+  "localDevelopment": {
+    "setup": "npm install",
+    "build": "npm run compile",
+    "watch": "npm run watch",
+    "test": "Press F5 in VSCode to launch the Extension Development Host",
+    "instructions": [
+      "1. Clone the repository: git clone https://github.com/nigulasikk/codex-ui.git",
+      "2. Navigate to the project directory: cd codex-ui",
+      "3. Install dependencies: npm install",
+      "4. Compile the extension: npm run compile",
+      "5. Press F5 in VSCode to launch the Extension Development Host",
+      "6. In the Extension Development Host, open the command palette (Ctrl+Shift+P)",
+      "7. Run the command 'Open Codex UI' to open the extension UI",
+      "8. Configure your API settings and start using the extension"
+    ]
+  },
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codex-ui.openCodexUI",
+        "title": "Open Codex UI"
+      },
+      {
+        "command": "codex-ui.executeWithFile",
+        "title": "Execute Codex with Current File"
+      }
+    ],
+    "configuration": {
+      "title": "Codex UI",
+      "properties": {
+        "codex-ui.apiProvider": {
+          "type": "string",
+          "default": "openrouter",
+          "enum": ["openrouter", "qwen", "ollama"],
+          "enumDescriptions": [
+            "Use OpenRouter API",
+            "Use Tongyi Qianwen (通义千问) API",
+            "Use local Ollama instance"
+          ],
+          "description": "Select the API provider for Codex"
+        },
+        "codex-ui.openrouterApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for OpenRouter"
+        },
+        "codex-ui.qwenApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for Tongyi Qianwen (通义千问)"
+        },
+        "codex-ui.ollamaEndpoint": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Endpoint URL for Ollama"
+        },
+        "codex-ui.ollamaModel": {
+          "type": "string",
+          "default": "codellama",
+          "description": "Model name for Ollama"
+        },
+        "codex-ui.approvalMode": {
+          "type": "string",
+          "default": "manual",
+          "enum": ["auto", "manual", "suggest"],
+          "enumDescriptions": [
+            "Automatically apply changes without confirmation",
+            "Require manual confirmation before applying changes",
+            "Only suggest changes without applying them"
+          ],
+          "description": "Select the approval mode for Codex"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "node ./out/test/runTest.js"
+  },
+  "dependencies": {
+    "axios": "^1.8.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.3.3"
+  }
+}
