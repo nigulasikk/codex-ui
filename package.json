@@ -60,47 +60,32 @@
     "configuration": {
       "title": "Codex UI",
       "properties": {
-        "codex-ui.apiProvider": {
+        "codex-ui.openaiApiKey": {
           "type": "string",
-          "default": "openrouter",
-          "enum": ["openrouter", "qwen", "ollama"],
+          "default": "",
+          "description": "OpenAI API Key 用于 Codex CLI"
+        },
+        "codex-ui.openaiModel": {
+          "type": "string",
+          "default": "gpt-4",
+          "enum": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
           "enumDescriptions": [
-            "Use OpenRouter API",
-            "Use Tongyi Qianwen (通义千问) API",
-            "Use local Ollama instance"
+            "GPT-4 (更强的理解和处理能力)",
+            "GPT-4 Turbo (更快的响应速度)",
+            "GPT-3.5 Turbo (更经济的选择)"
           ],
-          "description": "Select the API provider for Codex"
-        },
-        "codex-ui.openrouterApiKey": {
-          "type": "string",
-          "default": "",
-          "description": "API key for OpenRouter"
-        },
-        "codex-ui.qwenApiKey": {
-          "type": "string",
-          "default": "",
-          "description": "API key for Tongyi Qianwen (通义千问)"
-        },
-        "codex-ui.ollamaEndpoint": {
-          "type": "string",
-          "default": "http://localhost:11434",
-          "description": "Endpoint URL for Ollama"
-        },
-        "codex-ui.ollamaModel": {
-          "type": "string",
-          "default": "codellama",
-          "description": "Model name for Ollama"
+          "description": "OpenAI 模型选择"
         },
         "codex-ui.approvalMode": {
           "type": "string",
           "default": "manual",
           "enum": ["auto", "manual", "suggest"],
           "enumDescriptions": [
-            "Automatically apply changes without confirmation",
-            "Require manual confirmation before applying changes",
-            "Only suggest changes without applying them"
+            "自动执行生成的命令",
+            "在执行命令前需要手动确认",
+            "只提供建议，不执行命令"
           ],
-          "description": "Select the approval mode for Codex"
+          "description": "Codex 命令执行模式"
         }
       }
     }
@@ -113,6 +98,7 @@
     "test": "node ./out/test/runTest.js"
   },
   "dependencies": {
+    "@openai/codex": "^1.0.0",
     "axios": "^1.8.4"
   },
   "devDependencies": {

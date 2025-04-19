@@ -263,7 +263,7 @@ export class CodexUIPanel {
             </select>
           </div>
           
-          <button id="save-settings">Save Settings</button>
+          <button id="save-settings">保存配置</button>
         </div>
       </div>
       

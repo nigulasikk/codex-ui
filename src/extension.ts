@@ -23,16 +23,40 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this._getHtmlForWebview();
 
     // 处理来自 webview 的消息
-    webviewView.webview.onDidReceiveMessage(data => {
+    webviewView.webview.onDidReceiveMessage(async data => {
       switch (data.type) {
         case 'sendMessage':
           // 处理发送消息
-          executeCodexCommand(data.value);
+          try {
+            const response = await executeCodexCommand(data.value);
+            // 将响应发送回 WebView
+            webviewView.webview.postMessage({
+              type: 'addResponse',
+              value: response
+            });
+          } catch (error) {
+            if (error instanceof Error) {
+              webviewView.webview.postMessage({
+                type: 'addResponse',
+                value: `错误: ${error.message}`
+              });
+            } else {
+              webviewView.webview.postMessage({
+                type: 'addResponse',
+                value: "发生未知错误"
+              });
+            }
+          }
           break;
         case 'saveSettings':
           // 保存设置
           const config = vscode.workspace.getConfiguration('codex-ui');
-          config.update(data.key, data.value, vscode.ConfigurationTarget.Global);
+          await config.update(data.key, data.value, vscode.ConfigurationTarget.Global);
+          
+          // 通知保存成功
+          webviewView.webview.postMessage({
+            type: 'settingsSaved'
+          });
           break;
       }
     });
@@ -41,11 +65,8 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
   private _getHtmlForWebview() {
     // 获取当前配置
     const config = vscode.workspace.getConfiguration('codex-ui');
-    const apiProvider = config.get<string>('apiProvider', 'openrouter');
-    const openrouterApiKey = config.get<string>('openrouterApiKey', '');
-    const qwenApiKey = config.get<string>('qwenApiKey', '');
-    const ollamaEndpoint = config.get<string>('ollamaEndpoint', 'http://localhost:11434');
-    const ollamaModel = config.get<string>('ollamaModel', 'codellama');
+    const openaiApiKey = config.get<string>('openaiApiKey', '');
+    const openaiModel = config.get<string>('openaiModel', 'gpt-4');
     const approvalMode = config.get<string>('approvalMode', 'manual');
 
     return `<!DOCTYPE html>
@@ -183,9 +204,67 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
         }
         .api-settings {
           display: none;
+          margin-top: 10px;
+          margin-bottom: 10px;
+          padding: 10px;
+          border-radius: 4px;
+          background-color: var(--vscode-editor-background);
+          border: 1px solid var(--vscode-panel-border);
         }
         .api-settings.active {
           display: block;
+        }
+        .settings-notification {
+          position: fixed;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background-color: #4CAF50; /* 绿色背景 */
+          color: white;
+          padding: 12px 24px;
+          border-radius: 4px;
+          border: 1px solid #43A047;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          z-index: 1000;
+          transition: all 0.5s ease;
+          text-align: center;
+          font-weight: bold;
+          font-size: 14px;
+          opacity: 0; /* 初始时透明 */
+          min-width: 200px;
+        }
+        .settings-title {
+          font-size: 1.2rem;
+          margin-bottom: 0.5rem;
+          color: var(--vscode-foreground);
+        }
+        .settings-description {
+          margin-bottom: 1rem;
+          opacity: 0.8;
+          font-size: 0.9rem;
+        }
+        .api-key-group {
+          background-color: var(--vscode-editor-inactiveSelectionBackground);
+          padding: 12px;
+          border-radius: 4px;
+          border-left: 3px solid var(--vscode-focusBorder);
+        }
+        .key-hint {
+          font-size: 0.8rem;
+          opacity: 0.7;
+          margin-top: 4px;
+        }
+        .save-button {
+          background-color: var(--vscode-button-background);
+          color: var(--vscode-button-foreground);
+          border: none;
+          border-radius: 4px;
+          padding: 8px 16px;
+          cursor: pointer;
+          transition: background-color 0.3s ease;
+        }
+        .save-button:hover {
+          background-color: var(--vscode-button-hoverBackground);
         }
       </style>
     </head>
@@ -199,60 +278,45 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
           <div class="panel active" id="chat-panel">
             <div class="chat-container">
               <div class="chat-messages" id="chat-messages">
-                <div class="message bot-message">Hi, I'm Devin! How can I help you with your code today?</div>
+                <div class="message bot-message">你好，我是Codex-UI，我可以帮您使用OpenAI Codex CLI执行命令。请在下方输入您的指令。</div>
               </div>
               <div class="input-container">
-                <input type="text" id="message-input" placeholder="Type your message here...">
-                <button id="send-button">Send</button>
+                <input type="text" id="message-input" placeholder="输入您的指令...">
+                <button id="send-button">发送</button>
               </div>
             </div>
           </div>
           <div class="panel" id="settings-panel">
             <div class="settings-container">
+              <h2 class="settings-title">配置您的 OpenAI Codex 设置</h2>
+              <p class="settings-description">请输入您的 OpenAI API Key 以使用 Codex CLI 功能</p>
+              
+              <div class="setting-group api-key-group">
+                <label for="openai-api-key">OpenAI API Key</label>
+                <input type="password" id="openai-api-key" value="\${openaiApiKey}" placeholder="输入您的 OpenAI API key">
+                <div class="key-hint">请在此处输入您的 OpenAI API Key</div>
+              </div>
+
               <div class="setting-group">
-                <label for="api-provider">API Provider</label>
-                <select id="api-provider">
-                  <option value="openrouter" \${apiProvider === 'openrouter' ? 'selected' : ''}>OpenRouter</option>
-                  <option value="qwen" \${apiProvider === 'qwen' ? 'selected' : ''}>Tongyi Qianwen (通义千问)</option>
-                  <option value="ollama" \${apiProvider === 'ollama' ? 'selected' : ''}>Ollama</option>
+                <label for="openai-model">OpenAI 模型</label>
+                <select id="openai-model">
+                  <option value="gpt-4" \${openaiModel === 'gpt-4' ? 'selected' : ''}>GPT-4</option>
+                  <option value="gpt-4-turbo" \${openaiModel === 'gpt-4-turbo' ? 'selected' : ''}>GPT-4 Turbo</option>
+                  <option value="gpt-3.5-turbo" \${openaiModel === 'gpt-3.5-turbo' ? 'selected' : ''}>GPT-3.5 Turbo</option>
                 </select>
               </div>
 
-              <div id="openrouter-settings" class="api-settings \${apiProvider === 'openrouter' ? 'active' : ''}">
-                <div class="setting-group">
-                  <label for="openrouter-api-key">OpenRouter API Key</label>
-                  <input type="password" id="openrouter-api-key" value="\${openrouterApiKey}">
-                </div>
-              </div>
-
-              <div id="qwen-settings" class="api-settings \${apiProvider === 'qwen' ? 'active' : ''}">
-                <div class="setting-group">
-                  <label for="qwen-api-key">Tongyi Qianwen API Key</label>
-                  <input type="password" id="qwen-api-key" value="\${qwenApiKey}">
-                </div>
-              </div>
-
-              <div id="ollama-settings" class="api-settings \${apiProvider === 'ollama' ? 'active' : ''}">
-                <div class="setting-group">
-                  <label for="ollama-endpoint">Ollama Endpoint</label>
-                  <input type="text" id="ollama-endpoint" value="\${ollamaEndpoint}">
-                </div>
-                <div class="setting-group">
-                  <label for="ollama-model">Ollama Model</label>
-                  <input type="text" id="ollama-model" value="\${ollamaModel}">
-                </div>
-              </div>
-
               <div class="setting-group">
-                <label for="approval-mode">Approval Mode</label>
+                <label for="approval-mode">命令执行模式</label>
                 <select id="approval-mode">
-                  <option value="auto" \${approvalMode === 'auto' ? 'selected' : ''}>Auto</option>
-                  <option value="manual" \${approvalMode === 'manual' ? 'selected' : ''}>Manual</option>
-                  <option value="suggest" \${approvalMode === 'suggest' ? 'selected' : ''}>Suggest</option>
+                  <option value="auto" \${approvalMode === 'auto' ? 'selected' : ''}>自动执行</option>
+                  <option value="manual" \${approvalMode === 'manual' ? 'selected' : ''}>手动确认</option>
+                  <option value="suggest" \${approvalMode === 'suggest' ? 'selected' : ''}>仅建议</option>
                 </select>
+                <div class="key-hint">自动执行：直接运行生成的命令；手动确认：在执行前确认；仅建议：只显示命令不执行</div>
               </div>
 
-              <button id="save-button">Save Settings</button>
+              <button id="save-button" class="save-button">保存设置</button>
             </div>
           </div>
         </div>
@@ -312,58 +376,28 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
           });
 
           // 设置功能
-          const apiProviderSelect = document.getElementById('api-provider');
-          const openrouterSettings = document.getElementById('openrouter-settings');
-          const qwenSettings = document.getElementById('qwen-settings');
-          const ollamaSettings = document.getElementById('ollama-settings');
           const saveButton = document.getElementById('save-button');
 
-          function updateApiSettings() {
-            const selectedProvider = apiProviderSelect.value;
-            openrouterSettings.classList.toggle('active', selectedProvider === 'openrouter');
-            qwenSettings.classList.toggle('active', selectedProvider === 'qwen');
-            ollamaSettings.classList.toggle('active', selectedProvider === 'ollama');
-          }
-
-          apiProviderSelect.addEventListener('change', updateApiSettings);
-
           saveButton.addEventListener('click', () => {
-            const apiProvider = apiProviderSelect.value;
-            const openrouterApiKey = document.getElementById('openrouter-api-key').value;
-            const qwenApiKey = document.getElementById('qwen-api-key').value;
-            const ollamaEndpoint = document.getElementById('ollama-endpoint').value;
-            const ollamaModel = document.getElementById('ollama-model').value;
+            const openaiApiKey = document.getElementById('openai-api-key').value;
+            const openaiModel = document.getElementById('openai-model').value;
             const approvalMode = document.getElementById('approval-mode').value;
+
+            // 显示保存中状态
+            saveButton.disabled = true;
+            saveButton.textContent = '保存中...';
 
             // 发送设置到扩展
             vscode.postMessage({
               type: 'saveSettings',
-              key: 'apiProvider',
-              value: apiProvider
+              key: 'openaiApiKey',
+              value: openaiApiKey
             });
-
+            
             vscode.postMessage({
               type: 'saveSettings',
-              key: 'openrouterApiKey',
-              value: openrouterApiKey
-            });
-
-            vscode.postMessage({
-              type: 'saveSettings',
-              key: 'qwenApiKey',
-              value: qwenApiKey
-            });
-
-            vscode.postMessage({
-              type: 'saveSettings',
-              key: 'ollamaEndpoint',
-              value: ollamaEndpoint
-            });
-
-            vscode.postMessage({
-              type: 'saveSettings',
-              key: 'ollamaModel',
-              value: ollamaModel
+              key: 'openaiModel',
+              value: openaiModel
             });
 
             vscode.postMessage({
@@ -379,6 +413,35 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
             switch (message.type) {
               case 'addResponse':
                 addMessage(message.value, false);
+                break;
+              case 'settingsSaved':
+                // 恢复保存按钮状态
+                const saveButton = document.getElementById('save-button');
+                if (saveButton) {
+                  saveButton.disabled = false;
+                  saveButton.textContent = '保存配置';
+                }
+                
+                // 显示保存成功的提示
+                const notification = document.createElement('div');
+                notification.className = 'settings-notification';
+                notification.innerHTML = '✓ 配置已成功保存';
+                document.body.appendChild(notification);
+                
+                // 淡入效果
+                setTimeout(() => {
+                  notification.style.opacity = '1';
+                }, 10);
+                
+                // 3秒后淡出并移除
+                setTimeout(() => {
+                  notification.style.opacity = '0';
+                  setTimeout(() => {
+                    if (notification.parentNode) {
+                      document.body.removeChild(notification);
+                    }
+                  }, 500);
+                }, 3000);
                 break;
             }
           });
