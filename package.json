@@ -60,47 +60,21 @@
     "configuration": {
       "title": "Codex UI",
       "properties": {
-        "codex-ui.apiProvider": {
-          "type": "string",
-          "default": "openrouter",
-          "enum": ["openrouter", "qwen", "ollama"],
-          "enumDescriptions": [
-            "OpenRouter (支持多种AI模型)",
-            "通义千问 (阿里巴巴的AI模型)",
-            "Ollama (本地AI模型)"
-          ],
-          "description": "选择API提供商"
-        },
-        "codex-ui.openrouterApiKey": {
+        "codex-ui.openaiApiKey": {
           "type": "string",
           "default": "",
-          "description": "OpenRouter API Key"
+          "description": "OpenAI API Key 用于 Codex CLI"
         },
-        "codex-ui.qwenApiKey": {
+        "codex-ui.openaiModel": {
           "type": "string",
-          "default": "",
-          "description": "通义千问 API Key"
-        },
-        "codex-ui.ollamaEndpoint": {
-          "type": "string",
-          "default": "http://localhost:11434",
-          "description": "Ollama API 端点"
-        },
-        "codex-ui.ollamaModel": {
-          "type": "string",
-          "default": "codellama",
-          "description": "Ollama 模型名称"
-        },
-        "codex-ui.approvalMode": {
-          "type": "string",
-          "default": "manual",
-          "enum": ["auto", "manual", "suggest"],
+          "default": "gpt-4",
+          "enum": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
           "enumDescriptions": [
-            "自动执行生成的命令",
-            "在执行命令前需要手动确认",
-            "只提供建议，不执行命令"
+            "GPT-4 (更强的理解和处理能力)",
+            "GPT-4 Turbo (更快的响应速度)",
+            "GPT-3.5 Turbo (更经济的选择)"
           ],
-          "description": "Codex 命令执行模式"
+          "description": "OpenAI 模型选择"
         }
       }
     }
