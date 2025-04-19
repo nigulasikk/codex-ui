@@ -63,7 +63,8 @@ export async function executeCodexCommand(prompt: string): Promise<string> {
     try {
       vscode.window.setStatusBarMessage('正在执行 Codex 命令...', 3000);
       
-      const { stdout, stderr } = await exec(`codex --model ${model} "${escapedPrompt}"`);
+      const codexPath = path.join(__dirname, '..', 'node_modules', '.bin', 'codex');
+      const { stdout, stderr } = await exec(`"${codexPath}" --model ${model} "${escapedPrompt}"`);
       
       if (stderr && !stderr.includes('npm WARN')) {
         throw new Error(stderr);

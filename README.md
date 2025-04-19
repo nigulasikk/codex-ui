@@ -14,7 +14,6 @@ A VSCode extension that provides a clean and intuitive interface for OpenAI Code
 ## 系统要求 (Requirements)
 
 - Visual Studio Code 1.80.0 或更高版本
-- 已安装 OpenAI Codex CLI (`npm install -g @openai/codex`)
 - OpenAI API Key
 - 网络连接
 
@@ -33,13 +32,9 @@ A VSCode extension that provides a clean and intuitive interface for OpenAI Code
 4. 点击"执行"按钮，等待 Codex 生成结果
 5. 查看并应用生成的代码或建议
 
-## 安装 Codex CLI
+## 使用说明
 
-在使用此扩展前，请确保已安装 OpenAI Codex CLI：
-
-```bash
-npm install -g @openai/codex
-```
+此扩展已包含 OpenAI Codex CLI 作为依赖，无需单独安装。只需配置您的 OpenAI API Key 即可开始使用。
 
 ## 已知问题 (Known Issues)
 
