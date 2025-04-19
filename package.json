@@ -60,21 +60,36 @@
     "configuration": {
       "title": "Codex UI",
       "properties": {
-        "codex-ui.openaiApiKey": {
+        "codex-ui.apiProvider": {
+          "type": "string",
+          "default": "openrouter",
+          "enum": ["openrouter", "qwen", "ollama"],
+          "enumDescriptions": [
+            "OpenRouter (支持多种AI模型)",
+            "通义千问 (阿里巴巴的AI模型)",
+            "Ollama (本地AI模型)"
+          ],
+          "description": "选择API提供商"
+        },
+        "codex-ui.openrouterApiKey": {
           "type": "string",
           "default": "",
-          "description": "OpenAI API Key 用于 Codex CLI"
+          "description": "OpenRouter API Key"
         },
-        "codex-ui.openaiModel": {
+        "codex-ui.qwenApiKey": {
           "type": "string",
-          "default": "gpt-4",
-          "enum": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
-          "enumDescriptions": [
-            "GPT-4 (更强的理解和处理能力)",
-            "GPT-4 Turbo (更快的响应速度)",
-            "GPT-3.5 Turbo (更经济的选择)"
-          ],
-          "description": "OpenAI 模型选择"
+          "default": "",
+          "description": "通义千问 API Key"
+        },
+        "codex-ui.ollamaEndpoint": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Ollama API 端点"
+        },
+        "codex-ui.ollamaModel": {
+          "type": "string",
+          "default": "codellama",
+          "description": "Ollama 模型名称"
         },
         "codex-ui.approvalMode": {
           "type": "string",
