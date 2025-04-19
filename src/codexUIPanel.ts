@@ -2,12 +2,20 @@ import * as vscode from 'vscode';
 import { executeCodexCommand } from './codexExecutor';
 import { getNonce } from './utils';
 
+/**
+ * Codex UI 面板类
+ * 管理 VSCode 扩展的 WebView 界面
+ */
 export class CodexUIPanel {
   public static currentPanel: CodexUIPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionContext: vscode.ExtensionContext;
   private _disposables: vscode.Disposable[] = [];
 
+  /**
+   * 创建或显示 Codex UI 面板
+   * @param context 扩展上下文
+   */
   public static createOrShow(context: vscode.ExtensionContext) {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -33,6 +41,11 @@ export class CodexUIPanel {
     CodexUIPanel.currentPanel = new CodexUIPanel(panel, context);
   }
 
+  /**
+   * 构造函数
+   * @param panel WebView 面板
+   * @param context 扩展上下文
+   */
   private constructor(panel: vscode.WebviewPanel, context: vscode.ExtensionContext) {
     this._panel = panel;
     this._extensionContext = context;
@@ -46,16 +59,8 @@ export class CodexUIPanel {
         switch (message.command) {
           case 'executeCodex':
             let prompt = message.text;
-            if (prompt.includes('@file')) {
-              const editor = vscode.window.activeTextEditor;
-              if (editor) {
-                const fileContent = editor.document.getText();
-                prompt = prompt.replace('@file', fileContent);
-              } else {
-                vscode.window.showErrorMessage('No active editor found for @file reference');
-                return;
-              }
-            }
+            
+            this._panel.webview.postMessage({ command: 'startLoading' });
             
             const result = await executeCodexCommand(prompt);
             
@@ -64,24 +69,22 @@ export class CodexUIPanel {
           
           case 'saveSettings':
             const config = vscode.workspace.getConfiguration('codex-ui');
-            await config.update('apiProvider', message.apiProvider, vscode.ConfigurationTarget.Global);
+            await config.update('openaiApiKey', message.apiKey, vscode.ConfigurationTarget.Global);
+            await config.update('openaiModel', message.model, vscode.ConfigurationTarget.Global);
             
-            switch (message.apiProvider) {
-              case 'openrouter':
-                await config.update('openrouterApiKey', message.apiKey, vscode.ConfigurationTarget.Global);
-                break;
-              case 'qwen':
-                await config.update('qwenApiKey', message.apiKey, vscode.ConfigurationTarget.Global);
-                break;
-              case 'ollama':
-                await config.update('ollamaEndpoint', message.endpoint, vscode.ConfigurationTarget.Global);
-                await config.update('ollamaModel', message.model, vscode.ConfigurationTarget.Global);
-                break;
-            }
+            vscode.window.showInformationMessage('Codex UI 设置已保存');
+            break;
             
-            await config.update('approvalMode', message.approvalMode, vscode.ConfigurationTarget.Global);
+          case 'openSettings':
+            const currentConfig = vscode.workspace.getConfiguration('codex-ui');
+            const currentApiKey = currentConfig.get<string>('openaiApiKey', '');
+            const currentModel = currentConfig.get<string>('openaiModel', 'gpt-4');
             
-            vscode.window.showInformationMessage('Codex UI settings saved');
+            this._panel.webview.postMessage({ 
+              command: 'showSettings', 
+              apiKey: currentApiKey,
+              model: currentModel
+            });
             break;
         }
       },
@@ -90,6 +93,9 @@ export class CodexUIPanel {
     );
   }
 
+  /**
+   * 释放资源
+   */
   public dispose() {
     CodexUIPanel.currentPanel = undefined;
 
@@ -103,24 +109,23 @@ export class CodexUIPanel {
     }
   }
 
+  /**
+   * 更新面板内容
+   */
   private _update() {
     this._panel.title = 'Codex UI';
     this._panel.webview.html = this._getHtmlForWebview();
   }
 
+  /**
+   * 生成 WebView HTML 内容
+   * @returns HTML 字符串
+   */
   private _getHtmlForWebview() {
-    const config = vscode.workspace.getConfiguration('codex-ui');
-    const apiProvider = config.get<string>('apiProvider', 'openrouter');
-    const openrouterApiKey = config.get<string>('openrouterApiKey', '');
-    const qwenApiKey = config.get<string>('qwenApiKey', '');
-    const ollamaEndpoint = config.get<string>('ollamaEndpoint', 'http://localhost:11434');
-    const ollamaModel = config.get<string>('ollamaModel', 'codellama');
-    const approvalMode = config.get<string>('approvalMode', 'manual');
-
     const nonce = getNonce();
 
     return `<!DOCTYPE html>
-    <html lang="en">
+    <html lang="zh-CN">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -137,6 +142,15 @@ export class CodexUIPanel {
           display: flex;
           flex-direction: column;
           gap: 20px;
+        }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .title {
+          font-size: 1.5em;
+          font-weight: bold;
         }
         .input-group {
           display: flex;
@@ -168,29 +182,6 @@ export class CodexUIPanel {
         button:hover {
           background-color: var(--vscode-button-hoverBackground);
         }
-        .tabs {
-          display: flex;
-          border-bottom: 1px solid var(--vscode-panel-border);
-        }
-        .tab {
-          padding: 8px 16px;
-          cursor: pointer;
-          border: 1px solid transparent;
-          border-bottom: none;
-        }
-        .tab.active {
-          background-color: var(--vscode-tab-activeBackground);
-          border-color: var(--vscode-panel-border);
-          border-bottom: 1px solid var(--vscode-tab-activeBackground);
-          margin-bottom: -1px;
-        }
-        .tab-content {
-          display: none;
-          padding: 20px 0;
-        }
-        .tab-content.active {
-          display: block;
-        }
         .result {
           margin-top: 20px;
           padding: 10px;
@@ -201,110 +192,121 @@ export class CodexUIPanel {
         .hidden {
           display: none;
         }
+        .modal {
+          display: none;
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(0, 0, 0, 0.5);
+          z-index: 100;
+          justify-content: center;
+          align-items: center;
+        }
+        .modal-content {
+          background-color: var(--vscode-editor-background);
+          padding: 20px;
+          border-radius: 4px;
+          width: 80%;
+          max-width: 500px;
+        }
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 15px;
+        }
+        .modal-title {
+          font-size: 1.2em;
+          font-weight: bold;
+        }
+        .close-button {
+          background: none;
+          border: none;
+          font-size: 1.5em;
+          cursor: pointer;
+          color: var(--vscode-foreground);
+        }
+        .loading {
+          display: inline-block;
+        }
+        @keyframes thinking {
+          0% { opacity: 0.3; }
+          50% { opacity: 1; }
+          100% { opacity: 0.3; }
+        }
+        .thinking-text {
+          animation: thinking 1.5s infinite;
+          display: inline-block;
+        }
       </style>
     </head>
     <body>
       <div class="container">
-        <div class="tabs">
-          <div class="tab active" data-tab="chat">Chat</div>
-          <div class="tab" data-tab="settings">Settings</div>
+        <div class="header">
+          <div class="title">Codex UI</div>
+          <button id="settings-button">设置</button>
         </div>
         
-        <div class="tab-content active" id="chat-tab">
+        <div class="chat-container">
           <div class="input-group">
-            <label for="prompt">Enter your prompt (use @file to reference the current file):</label>
-            <textarea id="prompt" placeholder="Ask Codex to help you with coding tasks..."></textarea>
+            <label for="prompt">输入您的提示:</label>
+            <textarea id="prompt" placeholder="请输入您的代码问题或需求..."></textarea>
           </div>
-          <button id="execute">Execute</button>
+          <button id="execute">执行</button>
           <div id="result" class="result hidden"></div>
         </div>
-        
-        <div class="tab-content" id="settings-tab">
+      </div>
+      
+      <!-- 设置弹窗 -->
+      <div id="settings-modal" class="modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div class="modal-title">设置</div>
+            <button class="close-button" id="close-settings">&times;</button>
+          </div>
           <div class="input-group">
-            <label for="api-provider">API Provider:</label>
-            <select id="api-provider">
-              <option value="openrouter" ${apiProvider === "openrouter" ? 'selected' : ''}>OpenRouter</option>
-              <option value="qwen" ${apiProvider === "qwen" ? 'selected' : ''}>Tongyi Qianwen (通义千问)</option>
-              <option value="ollama" ${apiProvider === "ollama" ? 'selected' : ''}>Ollama</option>
+            <label for="openai-api-key">OpenAI API Key:</label>
+            <input type="password" id="openai-api-key" />
+          </div>
+          <div class="input-group">
+            <label for="openai-model">OpenAI 模型:</label>
+            <select id="openai-model">
+              <option value="gpt-4">GPT-4</option>
+              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
             </select>
           </div>
-          
-          <div id="openrouter-settings" class="${apiProvider === 'openrouter' ? '' : 'hidden'}">
-            <div class="input-group">
-              <label for="openrouter-api-key">OpenRouter API Key:</label>
-              <input type="password" id="openrouter-api-key" value="${openrouterApiKey}" />
-            </div>
-          </div>
-          
-          <div id="qwen-settings" class="${apiProvider === "qwen" ? '' : 'hidden'}">
-            <div class="input-group">
-              <label for="qwen-api-key">Tongyi Qianwen API Key:</label>
-              <input type="password" id="qwen-api-key" value="${qwenApiKey}" />
-            </div>
-          </div>
-          
-          <div id="ollama-settings" class="${apiProvider === "ollama" ? '' : 'hidden'}">
-            <div class="input-group">
-              <label for="ollama-endpoint">Ollama Endpoint:</label>
-              <input type="text" id="ollama-endpoint" value="${ollamaEndpoint}" />
-            </div>
-            <div class="input-group">
-              <label for="ollama-model">Ollama Model:</label>
-              <input type="text" id="ollama-model" value="${ollamaModel}" />
-            </div>
-          </div>
-          
-          <div class="input-group">
-            <label for="approval-mode">Approval Mode:</label>
-            <select id="approval-mode">
-              <option value="auto" ${approvalMode === 'auto' ? 'selected' : ''}>Automatic</option>
-              <option value="manual" ${approvalMode === 'manual' ? 'selected' : ''}>Manual Confirmation</option>
-              <option value="suggest" ${approvalMode === 'suggest' ? 'selected' : ''}>Suggestion Only</option>
-            </select>
-          </div>
-          
-          <button id="save-settings">保存配置</button>
+          <button id="save-settings" style="margin-top: 15px;">保存设置</button>
         </div>
       </div>
       
       <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         
-        const tabs = document.querySelectorAll('.tab');
-        const tabContents = document.querySelectorAll('.tab-content');
-        const apiProviderSelect = document.getElementById('api-provider');
-        const openrouterSettings = document.getElementById('openrouter-settings');
-        const qwenSettings = document.getElementById('qwen-settings');
-        const ollamaSettings = document.getElementById('ollama-settings');
+        const settingsButton = document.getElementById('settings-button');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeSettings = document.getElementById('close-settings');
         const executeButton = document.getElementById('execute');
         const promptTextarea = document.getElementById('prompt');
         const resultDiv = document.getElementById('result');
         const saveSettingsButton = document.getElementById('save-settings');
+        const openaiApiKeyInput = document.getElementById('openai-api-key');
+        const openaiModelSelect = document.getElementById('openai-model');
         
-        tabs.forEach(tab => {
-          tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
-            
-            tab.classList.add('active');
-            const tabId = tab.getAttribute('data-tab');
-            document.getElementById(tabId + '-tab').classList.add('active');
-          });
+        settingsButton.addEventListener('click', () => {
+          vscode.postMessage({ command: 'openSettings' });
+          settingsModal.style.display = 'flex';
         });
         
-        apiProviderSelect.addEventListener('change', () => {
-          const provider = apiProviderSelect.value;
-          
-          openrouterSettings.classList.add('hidden');
-          qwenSettings.classList.add('hidden');
-          ollamaSettings.classList.add('hidden');
-          
-          if (provider === 'openrouter') {
-            openrouterSettings.classList.remove('hidden');
-          } else if (provider === 'qwen') {
-            qwenSettings.classList.remove('hidden');
-          } else if (provider === 'ollama') {
-            ollamaSettings.classList.remove('hidden');
+        closeSettings.addEventListener('click', () => {
+          settingsModal.style.display = 'none';
+        });
+        
+        window.addEventListener('click', (event) => {
+          if (event.target === settingsModal) {
+            settingsModal.style.display = 'none';
           }
         });
         
@@ -314,7 +316,7 @@ export class CodexUIPanel {
             return;
           }
           
-          resultDiv.textContent = 'Processing...';
+          resultDiv.innerHTML = '<div class="loading"><span class="thinking-text">思考中</span></div>';
           resultDiv.classList.remove('hidden');
           
           vscode.postMessage({
@@ -324,30 +326,16 @@ export class CodexUIPanel {
         });
         
         saveSettingsButton.addEventListener('click', () => {
-          const apiProvider = apiProviderSelect.value;
-          let apiKey = '';
-          let endpoint = '';
-          let model = '';
-          
-          if (apiProvider === 'openrouter') {
-            apiKey = document.getElementById('openrouter-api-key').value;
-          } else if (apiProvider === 'qwen') {
-            apiKey = document.getElementById('qwen-api-key').value;
-          } else if (apiProvider === 'ollama') {
-            endpoint = document.getElementById('ollama-endpoint').value;
-            model = document.getElementById('ollama-model').value;
-          }
-          
-          const approvalMode = document.getElementById('approval-mode').value;
+          const apiKey = openaiApiKeyInput.value;
+          const model = openaiModelSelect.value;
           
           vscode.postMessage({
             command: 'saveSettings',
-            apiProvider,
             apiKey,
-            endpoint,
-            model,
-            approvalMode
+            model
           });
+          
+          settingsModal.style.display = 'none';
         });
         
         window.addEventListener('message', event => {
@@ -356,6 +344,16 @@ export class CodexUIPanel {
           switch (message.command) {
             case 'result':
               resultDiv.textContent = message.text;
+              resultDiv.classList.remove('hidden');
+              break;
+              
+            case 'showSettings':
+              openaiApiKeyInput.value = message.apiKey || '';
+              openaiModelSelect.value = message.model || 'gpt-4';
+              break;
+              
+            case 'startLoading':
+              resultDiv.innerHTML = '<div class="loading"><span class="thinking-text">思考中</span></div>';
               resultDiv.classList.remove('hidden');
               break;
           }
