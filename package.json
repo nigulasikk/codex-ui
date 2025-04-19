@@ -26,14 +26,32 @@
     "Other",
     "Programming Languages"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:codex-ui.mainView",
+    "onCommand:codex-ui.executeWithFile"
+  ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codex-ui-sidebar",
+          "title": "Codex UI",
+          "icon": "resources/codex-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "codex-ui-sidebar": [
+        {
+          "type": "webview",
+          "id": "codex-ui.mainView",
+          "name": "Codex UI",
+          "icon": "resources/codex-icon.svg"
+        }
+      ]
+    },
     "commands": [
-      {
-        "command": "codex-ui.openCodexUI",
-        "title": "Open Codex UI"
-      },
       {
         "command": "codex-ui.executeWithFile",
         "title": "Execute Codex with Current File"
