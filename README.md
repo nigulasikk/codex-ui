@@ -1,51 +1,51 @@
 # Codex UI
 
-A VSCode extension that wraps around codex-cli to provide a user-friendly interface for AI-assisted coding.
+VSCode 扩展，为 OpenAI Codex CLI 提供简洁直观的用户界面，帮助开发者更高效地使用 AI 辅助编码。
 
-## Features
+A VSCode extension that provides a clean and intuitive interface for OpenAI Codex CLI, helping developers use AI-assisted coding more efficiently.
 
-- **Multiple AI Model Support**: Configure and use different AI models including OpenRouter, Tongyi Qianwen (通义千问), and Ollama.
-- **File Reference Support**: Use `@file` in your prompts to reference the current file content.
-- **Flexible Approval Modes**: Choose between automatic, manual confirmation, or suggestion-only modes.
-- **User-Friendly Interface**: Simple and intuitive UI for interacting with AI models.
+## 功能特点 (Features)
 
-## Requirements
+- **简洁的用户界面**：单一聊天界面，操作简单直观
+- **设置弹窗**：通过弹窗轻松配置 OpenAI API Key 和模型
+- **加载动画效果**：执行命令时显示思考动画，提供更好的用户体验
+- **OpenAI Codex CLI 集成**：直接利用强大的 Codex CLI 功能
 
-- Visual Studio Code 1.80.0 or higher
-- Internet connection for API-based models (OpenRouter, Tongyi Qianwen)
-- Local Ollama installation for Ollama model support
+## 系统要求 (Requirements)
 
-## Extension Settings
+- Visual Studio Code 1.80.0 或更高版本
+- OpenAI API Key
+- 网络连接
 
-This extension contributes the following settings:
+## 扩展设置 (Extension Settings)
 
-* `codex-ui.apiProvider`: Select the API provider (OpenRouter, Tongyi Qianwen, Ollama)
-* `codex-ui.openrouterApiKey`: API key for OpenRouter
-* `codex-ui.qwenApiKey`: API key for Tongyi Qianwen (通义千问)
-* `codex-ui.ollamaEndpoint`: Endpoint URL for Ollama (default: http://localhost:11434)
-* `codex-ui.ollamaModel`: Model name for Ollama (default: codellama)
-* `codex-ui.approvalMode`: Select the approval mode (auto, manual, suggest)
+此扩展提供以下设置：
 
-## Usage
+* `codex-ui.openaiApiKey`: OpenAI API Key，用于 Codex CLI
+* `codex-ui.openaiModel`: 选择 OpenAI 模型 (gpt-4, gpt-4-turbo, gpt-3.5-turbo)
 
-1. Open the command palette (Ctrl+Shift+P) and run "Open Codex UI"
-2. Configure your preferred AI model and settings
-3. Enter your prompt in the input box (use @file to reference the current file)
-4. Click "Execute" to generate code or get assistance
-5. Review and apply the suggested changes
+## 使用方法 (Usage)
 
-Alternatively, you can use the "Execute Codex with Current File" command to quickly run Codex with the current file as context.
+1. 打开命令面板 (Ctrl+Shift+P) 并运行 "Open Codex UI"
+2. 点击设置按钮，配置您的 OpenAI API Key 和模型
+3. 在输入框中输入您的提示
+4. 点击"执行"按钮，等待 Codex 生成结果
+5. 查看并应用生成的代码或建议
 
-## Known Issues
+## 使用说明
 
-- None at this time
+此扩展已包含 OpenAI Codex CLI 作为依赖，无需单独安装。只需配置您的 OpenAI API Key 即可开始使用。
 
-## Release Notes
+## 已知问题 (Known Issues)
+
+- 无
+
+## 版本说明 (Release Notes)
 
 ### 0.1.0
 
-- Initial release
-- Support for OpenRouter, Tongyi Qianwen, and Ollama
-- File reference support with @file
-- Multiple approval modes (auto, manual, suggest)
-# Additional note
+- 初始版本
+- 简化的用户界面，仅包含聊天功能
+- 设置通过弹窗访问
+- 集成 OpenAI Codex CLI
+- 执行命令时显示加载动画

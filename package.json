@@ -75,17 +75,6 @@
             "GPT-3.5 Turbo (更经济的选择)"
           ],
           "description": "OpenAI 模型选择"
-        },
-        "codex-ui.approvalMode": {
-          "type": "string",
-          "default": "manual",
-          "enum": ["auto", "manual", "suggest"],
-          "enumDescriptions": [
-            "自动执行生成的命令",
-            "在执行命令前需要手动确认",
-            "只提供建议，不执行命令"
-          ],
-          "description": "Codex 命令执行模式"
         }
       }
     }

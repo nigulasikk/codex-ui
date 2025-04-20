@@ -7,7 +7,10 @@ import * as path from 'path';
 
 const exec = util.promisify(cp.exec);
 
-// 配置Codex CLI
+/**
+ * 配置 Codex CLI
+ * 设置 OpenAI API Key 并创建配置文件
+ */
 async function configureCodexCLI(): Promise<void> {
   try {
     const config = vscode.workspace.getConfiguration('codex-ui');
@@ -18,16 +21,13 @@ async function configureCodexCLI(): Promise<void> {
       return;
     }
     
-    // 设置环境变量
     process.env.OPENAI_API_KEY = apiKey;
     
-    // 创建或更新.codexrc文件
     const homeDir = os.homedir();
     const codexrcPath = path.join(homeDir, '.codexrc');
     
     const codexConfig = {
-      api_key: apiKey,
-      // 可以添加其他配置项
+      api_key: apiKey
     };
     
     await fs.promises.writeFile(codexrcPath, JSON.stringify(codexConfig, null, 2));
@@ -35,38 +35,36 @@ async function configureCodexCLI(): Promise<void> {
     vscode.window.showInformationMessage('Codex CLI 配置已更新');
   } catch (error) {
     if (error instanceof Error) {
-      vscode.window.showErrorMessage(`配置Codex CLI失败: ${error.message}`);
+      vscode.window.showErrorMessage(`配置 Codex CLI 失败: ${error.message}`);
     }
   }
 }
 
+/**
+ * 执行 Codex 命令
+ * @param prompt 用户输入的提示
+ * @returns 执行结果
+ */
 export async function executeCodexCommand(prompt: string): Promise<string> {
   try {
     const config = vscode.workspace.getConfiguration('codex-ui');
     const apiKey = config.get<string>('openaiApiKey', '');
     const model = config.get<string>('openaiModel', 'gpt-4');
-    const approvalMode = config.get<string>('approvalMode', 'manual');
     
     if (!apiKey) {
-      throw new Error('请先在设置中配置您的OpenAI API Key');
+      throw new Error('请先在设置中配置您的 OpenAI API Key');
     }
     
     // 设置环境变量
     process.env.OPENAI_API_KEY = apiKey;
     
-    // 构建命令行参数
-    let codexArgs = `--model ${model}`;
+    const escapedPrompt = prompt.replace(/"/g, '\\"');
     
-    // 根据执行模式设置参数
-    if (approvalMode === 'auto') {
-      codexArgs += ' --auto-approve';
-    } else if (approvalMode === 'suggest') {
-      codexArgs += ' --suggest-only';
-    }
-    
-    // 执行Codex命令
     try {
-      const { stdout, stderr } = await exec(`codex ${codexArgs} "${prompt.replace(/"/g, '\\"')}"`);
+      vscode.window.setStatusBarMessage('正在执行 Codex 命令...', 3000);
+      
+      const codexPath = path.join(__dirname, '..', 'node_modules', '.bin', 'codex');
+      const { stdout, stderr } = await exec(`"${codexPath}" --model ${model} "${escapedPrompt}"`);
       
       if (stderr && !stderr.includes('npm WARN')) {
         throw new Error(stderr);
@@ -76,13 +74,13 @@ export async function executeCodexCommand(prompt: string): Promise<string> {
     } catch (error: any) {
       if (error.stderr && error.stderr.includes('OPENAI_API_KEY')) {
         await configureCodexCLI();
-        return 'API Key已更新，请重新尝试您的命令';
+        return 'API Key 已更新，请重新尝试您的命令';
       }
       throw error;
     }
   } catch (error) {
     if (error instanceof Error) {
-      vscode.window.showErrorMessage(`执行Codex命令失败: ${error.message}`);
+      vscode.window.showErrorMessage(`执行 Codex 命令失败: ${error.message}`);
       return `错误: ${error.message}`;
     }
     vscode.window.showErrorMessage('执行命令时发生未知错误');
