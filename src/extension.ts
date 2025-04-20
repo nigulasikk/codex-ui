@@ -236,6 +236,54 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
         .running .status-text {
           display: block;
         }
+        /* 添加 cooking 计时器样式 */
+        .cooking-timer {
+          position: relative;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 10px;
+          padding: 6px 12px;
+          background: #111;
+          border-radius: 4px;
+          font-size: 14px;
+        }
+        .running .cooking-timer {
+          display: flex;
+        }
+        .shine-text {
+          position: relative;
+          display: inline-block;
+          font-size: 14px;
+          font-weight: bold;
+          color: #777;
+          overflow: hidden;
+          margin-right: 10px;
+        }
+        .shine-text::before {
+          content: attr(data-text);
+          position: absolute;
+          left: 0; top: 0;
+          width: 100%; height: 100%;
+          color: transparent;
+          background: linear-gradient(
+            120deg,
+            transparent 0%,
+            rgba(255,255,255,0.8) 50%,
+            transparent 100%
+          ) no-repeat;
+          background-size: 200% 100%;
+          -webkit-background-clip: text;
+                  background-clip: text;
+          animation: shine 1.4s linear infinite;
+        }
+        @keyframes shine {
+          0%   { background-position:  100% 0; }
+          100% { background-position: -100% 0; }
+        }
+        .timer-count {
+          color: #fff;
+        }
         .settings-container {
           display: flex;
           flex-direction: column;
@@ -346,6 +394,10 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
                 <span class="status-text">运行中</span>
                 <span class="status-indicator"></span>
               </div>
+              <div class="cooking-timer">
+                <span class="shine-text" data-text="cooking...">cooking...</span>
+                <span class="timer-count">0:00</span>
+              </div>
               <div class="chat-messages" id="chat-messages">
                 <div class="message bot-message">你好，我是Codex-UI，我可以帮您使用AI完成编程任务。请在下方输入您的指令。</div>
                 <div class="message user-message">如何使用React实现一个简单的计数器组件？</div>
@@ -410,6 +462,10 @@ export default Counter;</pre><br>这个组件使用了React的useState钩子来�
         (function() {
           const vscode = acquireVsCodeApi();
           
+          let timerInterval;
+          let startTime;
+          let timerElement;
+          
           // 标签页切换
           const tabs = document.querySelectorAll('.tab');
           const panels = document.querySelectorAll('.panel');
@@ -433,6 +489,7 @@ export default Counter;</pre><br>这个组件使用了React的useState钩子来�
           const sendButton = document.getElementById('send-button');
           const chatMessages = document.getElementById('chat-messages');
           const statusContainer = document.querySelector('.status-container');
+          const cookingTimer = document.querySelector('.cooking-timer');
           let isExecuting = false;
 
           function addMessage(text, isUser) {
@@ -477,6 +534,30 @@ export default Counter;</pre><br>这个组件使用了React的useState钩子来�
 
           // 设置功能
           const saveButton = document.getElementById('save-button');
+          
+          function startExecutionTimer() {
+            timerElement = document.querySelector('.timer-count');
+            startTime = Date.now();
+            updateTimer();
+            timerInterval = setInterval(updateTimer, 1000);
+          }
+          
+          function stopExecutionTimer() {
+            if (timerInterval) {
+              clearInterval(timerInterval);
+              timerInterval = null;
+            }
+          }
+          
+          function updateTimer() {
+            if (!timerElement) return;
+            
+            const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsedSeconds / 60);
+            const seconds = elapsedSeconds % 60;
+            
+            timerElement.textContent = minutes + ':' + seconds.toString().padStart(2, '0');
+          }
 
           saveButton.addEventListener('click', () => {
             const openaiApiKey = document.getElementById('openai-api-key').value;
@@ -517,6 +598,7 @@ export default Counter;</pre><br>这个组件使用了React的useState钩子来�
                 sendButton.textContent = '取消';
                 sendButton.classList.add('cancel');
                 messageInput.disabled = true;
+                startExecutionTimer();
                 break;
               case 'executionEnded':
                 isExecuting = false;
@@ -524,6 +606,7 @@ export default Counter;</pre><br>这个组件使用了React的useState钩子来�
                 sendButton.textContent = '发送';
                 sendButton.classList.remove('cancel');
                 messageInput.disabled = false;
+                stopExecutionTimer();
                 break;
               case 'addResponse':
                 addMessage(message.value, false);
