@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
-import { CodexUIPanel } from './codexUIPanel';
 import { executeCodexCommand } from './codexExecutor';
 
 // 创建 CodexViewProvider 类
 class CodexViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'codex-ui.mainView';
-
+  private executionCancelled = false;
+  private executionInProgress = false;
+  
   constructor(
     private readonly _extensionUri: vscode.Uri,
   ) { }
@@ -28,25 +29,55 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
         case 'sendMessage':
           // 处理发送消息
           try {
+            if (this.executionInProgress) {
+              return;
+            }
+            
+            this.executionInProgress = true;
+            this.executionCancelled = false;
+            
+            webviewView.webview.postMessage({
+              type: 'executionStarted'
+            });
+            
             const response = await executeCodexCommand(data.value);
+            
+            if (this.executionCancelled) {
+              return;
+            }
+            
             // 将响应发送回 WebView
             webviewView.webview.postMessage({
               type: 'addResponse',
               value: response
             });
           } catch (error) {
-            if (error instanceof Error) {
-              webviewView.webview.postMessage({
-                type: 'addResponse',
-                value: `错误: ${error.message}`
-              });
-            } else {
-              webviewView.webview.postMessage({
-                type: 'addResponse',
-                value: "发生未知错误"
-              });
+            if (!this.executionCancelled) {
+              if (error instanceof Error) {
+                webviewView.webview.postMessage({
+                  type: 'addResponse',
+                  value: `错误: ${error.message}`
+                });
+              } else {
+                webviewView.webview.postMessage({
+                  type: 'addResponse',
+                  value: "发生未知错误"
+                });
+              }
             }
+          } finally {
+            this.executionInProgress = false;
+            webviewView.webview.postMessage({
+              type: 'executionEnded'
+            });
           }
+          break;
+        case 'cancelExecution':
+          this.executionCancelled = true;
+          webviewView.webview.postMessage({
+            type: 'addResponse',
+            value: "请求已取消"
+          });
           break;
         case 'saveSettings':
           // 保存设置
@@ -150,6 +181,7 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
         .input-container {
           display: flex;
           margin-top: 10px;
+          position: relative;
         }
         #message-input {
           flex: 1;
@@ -167,9 +199,42 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
           border: none;
           border-radius: 4px;
           cursor: pointer;
+          transition: all 0.3s ease;
         }
         #send-button:hover {
           background-color: var(--vscode-button-hoverBackground);
+        }
+        #send-button.cancel {
+          background-color: transparent;
+          color: #ff5555;
+          border: 2px solid #ff5555;
+          box-shadow: 0 0 5px #ff5555;
+        }
+        #send-button.cancel:hover {
+          background-color: rgba(255, 85, 85, 0.1);
+        }
+        .status-container {
+          display: flex;
+          justify-content: flex-end;
+          align-items: center;
+          margin-bottom: 10px;
+          color: var(--vscode-descriptionForeground);
+          font-size: 12px;
+        }
+        .status-indicator {
+          margin-left: 5px;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background-color: #4CAF50;
+          display: none;
+        }
+        .status-text {
+          display: none;
+        }
+        .running .status-indicator,
+        .running .status-text {
+          display: block;
         }
         .settings-container {
           display: flex;
@@ -271,14 +336,34 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
     <body>
       <div class="container">
         <div class="tabs">
-          <button class="tab active" data-panel="chat">Chat</button>
-          <button class="tab" data-panel="settings">Settings</button>
+          <button class="tab active" data-panel="chat">聊天</button>
+          <button class="tab" data-panel="settings">设置</button>
         </div>
         <div class="content">
           <div class="panel active" id="chat-panel">
             <div class="chat-container">
+              <div class="status-container">
+                <span class="status-text">运行中</span>
+                <span class="status-indicator"></span>
+              </div>
               <div class="chat-messages" id="chat-messages">
-                <div class="message bot-message">你好，我是Codex-UI，我可以帮您使用OpenAI Codex CLI执行命令。请在下方输入您的指令。</div>
+                <div class="message bot-message">你好，我是Codex-UI，我可以帮您使用AI完成编程任务。请在下方输入您的指令。</div>
+                <div class="message user-message">如何使用React实现一个简单的计数器组件？</div>
+                <div class="message bot-message">以下是一个简单的React计数器组件实现：<br><br><pre>import React, { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;计数器: {count}&lt;/h1&gt;
+      &lt;button onClick={() =&gt; setCount(count - 1)}&gt;减少&lt;/button&gt;
+      &lt;button onClick={() =&gt; setCount(count + 1)}&gt;增加&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}
+
+export default Counter;</pre><br>这个组件使用了React的useState钩子来管理计数状态，并提供了两个按钮来增加和减少计数值。</div>
               </div>
               <div class="input-container">
                 <input type="text" id="message-input" placeholder="输入您的指令...">
@@ -347,6 +432,8 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
           const messageInput = document.getElementById('message-input');
           const sendButton = document.getElementById('send-button');
           const chatMessages = document.getElementById('chat-messages');
+          const statusContainer = document.querySelector('.status-container');
+          let isExecuting = false;
 
           function addMessage(text, isUser) {
             const messageDiv = document.createElement('div');
@@ -358,7 +445,7 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
 
           function sendMessage() {
             const text = messageInput.value;
-            if (text) {
+            if (text && !isExecuting) {
               addMessage(text, true);
               vscode.postMessage({
                 type: 'sendMessage',
@@ -368,9 +455,22 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
             }
           }
 
-          sendButton.addEventListener('click', sendMessage);
+          function cancelExecution() {
+            vscode.postMessage({
+              type: 'cancelExecution'
+            });
+          }
+
+          sendButton.addEventListener('click', () => {
+            if (isExecuting) {
+              cancelExecution();
+            } else {
+              sendMessage();
+            }
+          });
+          
           messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !isExecuting) {
               sendMessage();
             }
           });
@@ -411,6 +511,20 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
           window.addEventListener('message', event => {
             const message = event.data;
             switch (message.type) {
+              case 'executionStarted':
+                isExecuting = true;
+                statusContainer.classList.add('running');
+                sendButton.textContent = '取消';
+                sendButton.classList.add('cancel');
+                messageInput.disabled = true;
+                break;
+              case 'executionEnded':
+                isExecuting = false;
+                statusContainer.classList.remove('running');
+                sendButton.textContent = '发送';
+                sendButton.classList.remove('cancel');
+                messageInput.disabled = false;
+                break;
               case 'addResponse':
                 addMessage(message.value, false);
                 break;
