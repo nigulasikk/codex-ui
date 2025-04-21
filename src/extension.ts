@@ -24,10 +24,9 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this._getHtmlForWebview();
 
     // 处理来自 webview 的消息
-    webviewView.webview.onDidReceiveMessage(async data => {
+    webviewView.webview.onDidReceiveMessage(async (data) => {
       switch (data.type) {
         case 'sendMessage':
-          // 处理发送消息
           try {
             if (this.executionInProgress) {
               return;
@@ -36,21 +35,28 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
             this.executionInProgress = true;
             this.executionCancelled = false;
             
+            // 通知 WebView 执行开始
             webviewView.webview.postMessage({
               type: 'executionStarted'
             });
             
-            const response = await executeCodexCommand(data.value);
-            
-            if (this.executionCancelled) {
-              return;
-            }
-            
-            // 将响应发送回 WebView
+            // 先发送模拟数据
             webviewView.webview.postMessage({
               type: 'addResponse',
-              value: response
+              value: '这是一个模拟响应，实际请求正在处理中...'
             });
+            
+            // const response = await executeCodexCommand(data.value);
+            
+            // if (this.executionCancelled) {
+            //   return;
+            // }
+            
+            // // 将响应发送回 WebView
+            // webviewView.webview.postMessage({
+            //   type: 'addResponse',
+            //   value: response
+            // });
           } catch (error) {
             if (!this.executionCancelled) {
               if (error instanceof Error) {
@@ -248,7 +254,7 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
           border-radius: 4px;
           font-size: 14px;
         }
-        .running .cooking-timer {
+        .running.cooking-timer {
           display: flex;
         }
         .shine-text {
@@ -394,30 +400,16 @@ class CodexViewProvider implements vscode.WebviewViewProvider {
                 <span class="status-text">运行中</span>
                 <span class="status-indicator"></span>
               </div>
-              <div class="cooking-timer">
-                <span class="shine-text" data-text="cooking...">cooking...</span>
-                <span class="timer-count">0:00</span>
-              </div>
+           
               <div class="chat-messages" id="chat-messages">
                 <div class="message bot-message">你好，我是Codex-UI，我可以帮您使用AI完成编程任务。请在下方输入您的指令。</div>
-                <div class="message user-message">如何使用React实现一个简单的计数器组件？</div>
-                <div class="message bot-message">以下是一个简单的React计数器组件实现：<br><br><pre>import React, { useState } from 'react';
-
-function Counter() {
-  const [count, setCount] = useState(0);
-
-  return (
-    &lt;div&gt;
-      &lt;h1&gt;计数器: {count}&lt;/h1&gt;
-      &lt;button onClick={() =&gt; setCount(count - 1)}&gt;减少&lt;/button&gt;
-      &lt;button onClick={() =&gt; setCount(count + 1)}&gt;增加&lt;/button&gt;
-    &lt;/div&gt;
-  );
-}
-
-export default Counter;</pre><br>这个组件使用了React的useState钩子来管理计数状态，并提供了两个按钮来增加和减少计数值。</div>
               </div>
+                <div class="cooking-timer">
+                    <span class="shine-text" data-text="cooking...">cooking...</span>
+                    <span class="timer-count">0:00</span>
+                  </div>
               <div class="input-container">
+                
                 <input type="text" id="message-input" placeholder="输入您的指令...">
                 <button id="send-button">发送</button>
               </div>
@@ -502,12 +494,18 @@ export default Counter;</pre><br>这个组件使用了React的useState钩子来�
 
           function sendMessage() {
             const text = messageInput.value;
-            if (text && !isExecuting) {
+            if (text ) {
+            
               addMessage(text, true);
-              vscode.postMessage({
-                type: 'sendMessage',
-                value: text
-              });
+              cookingTimer.classList.add('running');
+              startExecutionTimer();
+              setTimeout(() => {
+                  vscode.postMessage({
+                    type: 'sendMessage',
+                    value: text
+                  });
+              },10000)
+          
               messageInput.value = '';
             }
           }
@@ -519,11 +517,8 @@ export default Counter;</pre><br>这个组件使用了React的useState钩子来�
           }
 
           sendButton.addEventListener('click', () => {
-            if (isExecuting) {
-              cancelExecution();
-            } else {
+          
               sendMessage();
-            }
           });
           
           messageInput.addEventListener('keypress', (e) => {
